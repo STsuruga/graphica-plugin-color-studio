@@ -4,5 +4,5 @@
   "api_version": "2.0",
   "author": "STsuruga",
   "description": "グラデーションからの等間隔の色の抽出と、配色ルールによる配色パレットの生成(P-901)",
-  "requires": ["numpy", "scipy"]
+  "requires": ["numpy"]
 }

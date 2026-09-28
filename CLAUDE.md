@@ -43,6 +43,8 @@ python scripts/build_zip.py --all      # dist/color_studio-<version>.zip
 ## ルール
 - Graphica 本体のコードは変更しない。足りない拡張点は本体の Issue(ユーザーの了承を得て作成)とハブの note に記録する。
 - 依存は本体同梱のパッケージのみ(PySide6 6.11 / matplotlib 3.11 / numpy / pandas / scipy / openpyxl / xlrd)。
+  ただし exe には「本体が import するサブパッケージ」しか入らない。v2.0.0 の exe には scipy.cluster が無い
+  (exe で import を試すプローブで確認)。このプラグインは scipy を使わず、k-means は numpy で自前に持つ。
   仮想環境の pip 版は配布版より新しいことがある(2026-09 時点で numpy 2.5 / scipy 1.18、配布版は 2.3 / 1.16)。両方にある API だけ使う。
 - matplotlib の色は組で返ることがあるので、Qt に渡す前に matplotlib.colors.to_hex で #rrggbb にする。
 - プラグイン内は相対 import。他プラグインは import できない。
@@ -53,6 +55,7 @@ python scripts/build_zip.py --all      # dist/color_studio-<version>.zip
 ## 現状
 - M0〜M5 完了(2026-09-28): 計算モジュール、ライブラリ、受け渡し、ウィジェット、独立ウィンドウとパネル。テスト 152 件。
   - 計画からの変更: ホイールは QConicalGradient ではなく numpy で画素ごとに描く(RYB の色相対応と色覚の見え方を正確に出すため)。
-  - 計測: k-means(256×256、k=10)0.11 秒、ホイール描画(480px、D型)0.5 秒未満。
+  - 計測: k-means(256×256 のノイズ画像、k=10、numpy 版)0.12 秒、ホイール描画(480px、D型)0.5 秒未満。
+  - M6 で判明: exe に scipy.cluster が無い → k-means を numpy に置き換え、scipy の import を禁じるテストを追加。
   - 画面の Qt レイアウトの罠: 右の列を QLayout のまま置くと行の高さの上限になり、余りが下の色見本に回った(QWidget に包んで解決)。
 - 次は M6: zip をビルドし、仮想環境の graphica と Releases の exe の両方で実機確認(ユーザーにも確認してもらう)。

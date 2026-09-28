@@ -1,15 +1,18 @@
 """画像の画素から代表色を求める(k-means)。Qt にも Graphica 本体にも依存しない。
 
 画像の読み込みと縮小は qt_image.py が行い、ここには numpy の配列だけが来る。
+k-means は numpy で自前に持つ。Graphica v2.0.0 の exe は scipy.cluster を同梱していない
+(本体が使わないため PyInstaller が入れない)ので、scipy.cluster.vq は exe で import できない。
 """
-import warnings
-
 import numpy as np
-from scipy.cluster.vq import kmeans2
 
 from . import colors as C
 
 MAX_PIXELS = 65536
+# 中心を求めるのはこの数までの標本で行い、画素の数え上げだけ全体で行う(GUI スレッドで待たせないため)。
+_FIT_SAMPLES = 16384
+_MAX_ITERATIONS = 50
+_CONVERGED = 1e-7
 # 半透明より透明な画素は背景とみなして数えない。
 _ALPHA_CUTOFF = 128
 
@@ -46,15 +49,40 @@ def dominant_colors(pixels, k, *, alpha=None, max_pixels=MAX_PIXELS, seed=0):
         labels = _nearest(lab, distinct)
         centroids = np.array([lab[labels == i].mean(axis=0) for i in range(k)])
     else:
-        with warnings.catch_warnings():
-            # 空のクラスタは下で数を数えて捨てるので、警告は要らない。
-            warnings.simplefilter("ignore")
-            centroids, labels = kmeans2(lab, k, minit="++", rng=rng)
+        fit = lab if len(lab) <= _FIT_SAMPLES else lab[rng.choice(len(lab), size=_FIT_SAMPLES, replace=False)]
+        centroids, _ = kmeans(fit, k, rng)
+        labels = _nearest(lab, centroids)
     counts = np.bincount(labels, minlength=len(centroids))
     order = [i for i in np.argsort(-counts, kind="stable") if counts[i] > 0]
     return [C.oklab_to_hex(centroids[i]) for i in order]
 
 
+def kmeans(data, k, rng):
+    """k-means++ で初期値を選び、Lloyd 法で更新する。空になったクラスタは前の中心のまま残す。"""
+    n = len(data)
+    centers = [data[rng.integers(n)]]
+    d2 = ((data - centers[0]) ** 2).sum(axis=1)
+    for _ in range(1, k):
+        total = d2.sum()
+        if total <= 0:
+            break
+        pick = data[rng.choice(n, p=d2 / total)]
+        centers.append(pick)
+        d2 = np.minimum(d2, ((data - pick) ** 2).sum(axis=1))
+    centers = np.array(centers)
+    m = len(centers)
+    for _ in range(_MAX_ITERATIONS):
+        labels = _nearest(data, centers)
+        counts = np.bincount(labels, minlength=m)
+        sums = np.stack([np.bincount(labels, weights=data[:, c], minlength=m) for c in range(data.shape[1])], axis=1)
+        updated = np.where(counts[:, None] > 0, sums / np.maximum(counts, 1)[:, None], centers)
+        if np.allclose(updated, centers, atol=_CONVERGED):
+            break
+        centers = updated
+    return centers, _nearest(data, centers)
+
+
 def _nearest(points, centers):
-    d = ((points[:, None, :] - centers[None, :, :]) ** 2).sum(axis=-1)
+    # |p - c|^2 = |p|^2 - 2 p·c + |c|^2。|p|^2 は比較に効かないので省く。
+    d = (centers ** 2).sum(axis=1)[None, :] - 2.0 * points @ centers.T
     return d.argmin(axis=1)

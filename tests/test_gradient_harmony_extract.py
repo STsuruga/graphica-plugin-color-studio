@@ -288,3 +288,25 @@ def test_large_image_is_fast_enough_for_the_gui_thread():
     elapsed = time.perf_counter() - t0
     print(f"k-means 256x256, k=10: {elapsed:.3f}s")
     assert elapsed < 2.0
+
+
+def test_kmeans_separates_well_spread_clusters():
+    from color_studio.extract import kmeans
+    rng = np.random.default_rng(0)
+    centers = np.array([[0.2, 0.0, 0.0], [0.5, 0.1, 0.1], [0.8, -0.1, 0.05]])
+    data = np.concatenate([c + rng.normal(0, 0.01, (200, 3)) for c in centers])
+    got, labels = kmeans(data, 3, np.random.default_rng(1))
+    assert sorted(np.bincount(labels).tolist()) == [200, 200, 200]
+    for c in centers:
+        assert np.min(np.linalg.norm(got - c, axis=1)) < 0.01
+
+
+def test_plugin_code_does_not_import_scipy():
+    # Graphica v2.0.0 の exe には scipy.cluster が入っていない(本体の exe で確かめた)。使うと exe でだけ
+    # ウィンドウが開かなくなる。scipy のほかの部分も exe では本体が使う範囲しか入らないので、scipy 自体を使わない。
+    import pathlib
+    import re
+    pattern = re.compile(r"^\s*(from|import)\s+scipy(\.cluster)?\b", re.MULTILINE)
+    root = pathlib.Path(__file__).resolve().parent.parent / "color_studio"
+    offenders = [p.name for p in root.glob("*.py") if pattern.search(p.read_text(encoding="utf-8"))]
+    assert offenders == []
