@@ -39,6 +39,8 @@ _D65_WHITE = np.array([0.95047, 1.0, 1.08883])
 
 # 色域の判定の許容幅。変換の丸めで 1.0000001 などになるのを色域外と見なさない。
 _GAMUT_EPS = 1e-6
+# これ以内のはみ出しは計算誤差とみなして切り詰める(彩度を下げると色相がわずかに動くため)。
+_CLIP_TOLERANCE = 2e-3
 
 
 class ColorError(ValueError):
@@ -133,7 +135,7 @@ def oklab_to_rgb_in_gamut(lab):
     """sRGB の外にある色は、明度と色相を保ったまま彩度を下げて収める(単色)。"""
     lab = np.asarray(lab, dtype=float)
     rgb = oklab_to_rgb(lab)
-    if in_gamut(rgb):
+    if np.all((rgb >= -_CLIP_TOLERANCE) & (rgb <= 1.0 + _CLIP_TOLERANCE)):
         return np.clip(rgb, 0.0, 1.0)
     lightness = min(max(float(lab[0]), 0.0), 1.0)
     _, chroma, hue = oklab_to_oklch(lab)
