@@ -24,7 +24,7 @@ Graphica(https://github.com/STsuruga/Graphica)用プラグイン P-901 カラー
   - ライブラリ: ctx.data_dir の library.json。保存・一覧・複製・削除、JSON の書き出し / 読み込み。
   - 本体へ: 登録色(名前 → 1色)、配色パレット(色のリスト)、選択中のデータセットへ直接適用(Undo 付き)。
 - 見送ったこと・次の版に回したこと: colormap としての登録(窓口なし)、画像のスポイト、英語 UI。
-- 本体への要望の候補(Issue は未作成): 複数データセットの属性をまとめて変えて1回の Undo にする窓口、登録したパレットを有効にする窓口。
+- 本体への要望(2026-09-28 に作成): exe に scipy.cluster を同梱(STsuruga/Graphica#77)、複数データセットの変更を1回の Undo にまとめる窓口と、配色パレットを有効にする窓口(STsuruga/Graphica#78)。
 
 ## 構成
 - color_studio/ の計算モジュール(colors / gradient / harmony / extract / cvd)は Qt にも本体にも依存させない。
