@@ -59,9 +59,11 @@ pip 版で通るテストでは、exe にサブパッケージが無いことに
 - 結果のファイルができたらプロセスを終了する。
 
 ## 現状
-- M0〜M5 完了(2026-09-28): 計算モジュール、ライブラリ、受け渡し、ウィジェット、独立ウィンドウとパネル。テスト 152 件。
+- v1.0.0 をリリース(2026-09-28): https://github.com/STsuruga/graphica-plugin-color-studio/releases/tag/v1.0.0
+  - pip 版(仮想環境の graphica)と Releases の exe(v2.0.0)の両方で動作を確認し、ユーザーも実機で確認した。テスト 142 件。
   - 計画からの変更: ホイールは QConicalGradient ではなく numpy で画素ごとに描く(RYB の色相対応を正確に出すため)。
-  - 計測: k-means(256×256 のノイズ画像、k=10、numpy 版)0.12 秒、ホイール描画(480px、D型)0.5 秒未満。
-  - M6 で判明: exe に scipy.cluster が無い → k-means を numpy に置き換え、scipy の import を禁じるテストを追加。
+  - 実機確認のあと、色覚の見え方の切り替えと見分けにくい色の警告を外した(ユーザー判断)。
+  - 計測: k-means(256×256 のノイズ画像、k=10、numpy 版)0.12 秒、ホイール描画(480px)0.5 秒未満。
+  - exe に scipy.cluster が無い → k-means を numpy で自前に持ち、scipy の import を禁じるテストを置いた(Graphica#77)。
   - 画面の Qt レイアウトの罠: 右の列を QLayout のまま置くと行の高さの上限になり、余りが下の色見本に回った(QWidget に包んで解決)。
-- 次は M6: zip をビルドし、仮想環境の graphica と Releases の exe の両方で実機確認(ユーザーにも確認してもらう)。
+- 次の版の候補: Graphica#78 が入ったら「選択中に適用」を1回の Undo にまとめ、「配色パレットに登録」で有効にもする(API 2.1)。
