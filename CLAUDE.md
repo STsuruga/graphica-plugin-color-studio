@@ -52,6 +52,13 @@ python scripts/build_zip.py --all      # dist/color_studio-<version>.zip
 - 本体から import するのは graphica.plugin / graphica.plugin.testing だけ。本体の操作は窓口 ctx(PluginContext)で行う。
 - リリースしたら plugin.json の version とタグを揃え、ハブの db(collection "plugins", doc_id "P-901")を更新する。
 
+## exe で import できるかの確かめ方
+pip 版で通るテストでは、exe にサブパッケージが無いことに気づけない。Releases の Graphica-windows.zip(ポータブル版)を
+展開し、一時フォルダを LOCALAPPDATA にして、register() の中で import を試してファイルに書くだけの使い捨てプラグインを置いて起動する。
+- 環境変数: LOCALAPPDATA=<一時フォルダ>(プラグインは <一時フォルダ>\Graphica\plugins に置く)、QT_QPA_PLATFORM=offscreen(画面を出さない)
+- exe は QSettings をレジストリ(HKCU\Software\Graphica)に書くので、先に reg export で退避し、終わったら reg delete → reg import で戻す。
+- 結果のファイルができたらプロセスを終了する。
+
 ## 現状
 - M0〜M5 完了(2026-09-28): 計算モジュール、ライブラリ、受け渡し、ウィジェット、独立ウィンドウとパネル。テスト 152 件。
   - 計画からの変更: ホイールは QConicalGradient ではなく numpy で画素ごとに描く(RYB の色相対応と色覚の見え方を正確に出すため)。
