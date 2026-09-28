@@ -187,7 +187,9 @@ class Harmony:
     def with_colors(self, hex_colors):
         """画像から取った色などを、そのままカスタムの点にする。"""
         pts = tuple(hex_to_wheel(h, self.wheel) for h in hex_colors)
-        return replace(self, rule="custom", count=len(pts), custom_points=pts)
+        if len(pts) < MIN_COUNT:
+            raise C.ColorError(f"色が {len(pts)} 色しかありません。配色パレットには {MIN_COUNT} 色以上が必要です。")
+        return replace(self, rule="custom", count=min(len(pts), MAX_COUNT), custom_points=pts[:MAX_COUNT])
 
     def move_point(self, index, angle, saturation):
         """

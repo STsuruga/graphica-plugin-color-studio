@@ -21,7 +21,17 @@
 1. [Releases](https://github.com/STsuruga/graphica-plugin-color-studio/releases) から
    `color_studio-<version>.zip` をダウンロード
 2. Graphica を起動し、**編集 ▸ 環境設定 ▸「プラグイン」タブ ▸ プラグインをインストール...** から zip を選ぶ
-3. Graphica を再起動すると、「プラグイン」メニューに「カラースタジオを開く...」が出ます
+3. Graphica を再起動すると、「プラグイン」メニューに「カラースタジオを開く...」が出ます。
+   ライブラリの一覧を常に出しておくドックパネル「カラースタジオ」も、プラグインメニューから表示できます。
+
+### 登録色と配色パレットの違い
+
+- **登録色**: 「名前 → 1色」の対応。同じ物質や試料に、いつも同じ色を使うために登録します。
+  本体の色見本メニューの「登録色」にすぐ出ます。
+- **配色パレット**: 系列(データセット)に順に割り当てる色の並び。本体の「パレット管理」で選ぶと、
+  「自動配色」で選択中のデータセットに順番に色が付きます(パレット管理を開き直すと一覧に出ます)。
+- **選択中のデータセットに適用**: カラースタジオから直接、選択中のデータセットに表示順で色を付けます。
+  本体の「元に戻す」はデータセット1件ずつ戻ります。
 
 ## 開発環境
 
@@ -47,12 +57,26 @@ python scripts/build_zip.py --all      # dist/color_studio-1.0.0.zip
 ## 構成
 
 ```
-color_studio/        ← プラグイン本体(このフォルダ名がインストール先のフォルダ名)
-  __init__.py        ← register(api)
-  plugin.json        ← name / version / api_version
-tests/               ← pytest
-scripts/build_zip.py ← 配布用 zip のビルド
+color_studio/          ← プラグイン本体(このフォルダ名がインストール先のフォルダ名)
+  __init__.py          ← register(api): メニュー「カラースタジオを開く...」とパネル「カラースタジオ」
+  plugin.json          ← name / version / api_version
+  colors.py            ← 色空間の変換(sRGB / OKLab / OKLCH / HSV / CIELAB)と CIEDE2000
+  gradient.py          ← グラデーションと等間隔の抽出
+  harmony.py           ← カラーホイール(RYB / RGB)と配色ルール
+  extract.py           ← 画像の代表色(k-means)
+  cvd.py               ← 色覚の見え方と、見分けにくい組の判定
+  library.py           ← ライブラリ(ctx.data_dir の library.json)
+  bridge.py            ← 本体への受け渡し(登録色・配色パレット・選択中のデータセット)
+  wheel.py / gradient_bar.py / swatches.py   ← ウィジェット
+  output.py / dialogs.py / qt_image.py       ← 画面の部品
+  studio_window.py     ← 独立ウィンドウ(グラデーション / 配色パレット / ライブラリ)
+  panel.py             ← ドックパネル(ライブラリの一覧)
+tests/                 ← pytest
+scripts/build_zip.py   ← 配布用 zip のビルド
 ```
+
+上の6つ(colors〜library)は Qt にも Graphica 本体にも依存しない純粋な計算で、単体テストしています。
+本体とのやりとりは bridge.py に集め、窓口 `ctx`(PluginContext)のメソッドだけを使います。
 
 ## ライセンス
 

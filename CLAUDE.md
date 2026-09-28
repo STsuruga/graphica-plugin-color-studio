@@ -51,5 +51,8 @@ python scripts/build_zip.py --all      # dist/color_studio-<version>.zip
 - リリースしたら plugin.json の version とタグを揃え、ハブの db(collection "plugins", doc_id "P-901")を更新する。
 
 ## 現状
-- M0(リポジトリと開発環境)完了: 雛形・LICENSE・CI・空に近い register()(メニュー1件)と、読み込み・zip インストールのテスト。
-- 次は M1: colors.py(色空間変換・CIEDE2000・色域の丸め)と cvd.py、その単体テスト。
+- M0〜M5 完了(2026-09-28): 計算モジュール、ライブラリ、受け渡し、ウィジェット、独立ウィンドウとパネル。テスト 152 件。
+  - 計画からの変更: ホイールは QConicalGradient ではなく numpy で画素ごとに描く(RYB の色相対応と色覚の見え方を正確に出すため)。
+  - 計測: k-means(256×256、k=10)0.11 秒、ホイール描画(480px、D型)0.5 秒未満。
+  - 画面の Qt レイアウトの罠: 右の列を QLayout のまま置くと行の高さの上限になり、余りが下の色見本に回った(QWidget に包んで解決)。
+- 次は M6: zip をビルドし、仮想環境の graphica と Releases の exe の両方で実機確認(ユーザーにも確認してもらう)。
