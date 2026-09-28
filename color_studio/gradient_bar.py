@@ -3,7 +3,6 @@ from PySide6.QtCore import QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QColor, QImage, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
-from . import cvd
 from .colors import ColorError
 
 _MARGIN = 10
@@ -38,7 +37,6 @@ class GradientBar(QWidget):
         self.setToolTip("つまみをドラッグして位置を変更、帯をダブルクリックで色の点を追加、"
                         "つまみをダブルクリックで色を変更、Delete で削除")
         self._gradient = None
-        self._cvd = None
         self._selected = 0
         self._dragging = False
         self._preview_key = None
@@ -53,10 +51,6 @@ class GradientBar(QWidget):
         self._gradient = gradient
         if self._selected >= len(gradient.stops):
             self._selected = 0
-        self.update()
-
-    def set_cvd(self, cvd_type):
-        self._cvd = cvd_type
         self.update()
 
     def selected_index(self):
@@ -97,13 +91,12 @@ class GradientBar(QWidget):
     # --- 描画 ---
 
     def _preview_image(self):
-        key = (self._gradient, self._cvd)
-        if key != self._preview_key:
+        if self._gradient != self._preview_key:
             image = QImage(_PREVIEW_SAMPLES, 1, QImage.Format.Format_RGB32)
             for i in range(_PREVIEW_SAMPLES):
-                color = cvd.simulate_hex(self._gradient.color_at(i / (_PREVIEW_SAMPLES - 1)), self._cvd)
+                color = self._gradient.color_at(i / (_PREVIEW_SAMPLES - 1))
                 image.setPixelColor(i, 0, QColor(color))
-            self._preview, self._preview_key = image, key
+            self._preview, self._preview_key = image, self._gradient
         return self._preview
 
     def paintEvent(self, event):
@@ -141,7 +134,7 @@ class GradientBar(QWidget):
             selected = i == self._selected
             pen_color = self.palette().highlight().color() if selected else self.palette().text().color()
             painter.setPen(QPen(pen_color, 2.5 if selected else 1))
-            painter.setBrush(QColor(cvd.simulate_hex(stop.color, self._cvd)))
+            painter.setBrush(QColor(stop.color))
             painter.drawPath(path)
         painter.end()
 

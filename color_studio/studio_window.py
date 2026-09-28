@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
 )
 
 from . import colors as C
-from . import cvd, gradient, harmony
+from . import gradient, harmony
 from .dialogs import ask_name, strip_icon
 from .extract import dominant_colors
 from .gradient import Gradient, Stop
@@ -190,7 +190,7 @@ class GradientTab(QWidget):
         self.position_spin.blockSignals(True)
         self.position_spin.setValue(stop.position)
         self.position_spin.blockSignals(False)
-        _paint_color_button(self.stop_color_button, cvd.simulate_hex(stop.color, None))
+        _paint_color_button(self.stop_color_button, stop.color)
         self.stop_hex.setText(stop.color)
 
     def _position_edited(self, value):
@@ -587,32 +587,9 @@ class StudioWindow(QWidget):
         self.ctx = ctx
         self.setWindowTitle(WINDOW_TITLE)
         self.resize(1040, 720)
-        self.cvd_type = None
-        self.threshold = cvd.DEFAULT_DELTA_E_THRESHOLD
         self.library, self.library_error = load_library(ctx)
 
         layout = QVBoxLayout(self)
-        view_row = QHBoxLayout()
-        view_row.addStretch(1)
-        self.cvd_combo = QComboBox(self)
-        for key, label in cvd.CVD_LABELS.items():
-            self.cvd_combo.addItem(label, key)
-        self.cvd_combo.setToolTip("色見本とホイールを、色覚の型ごとの見え方(近似)で表示します")
-        self.cvd_combo.currentIndexChanged.connect(self._view_changed)
-        self.threshold_spin = QDoubleSpinBox(self)
-        self.threshold_spin.setRange(1.0, 50.0)
-        self.threshold_spin.setSingleStep(1.0)
-        self.threshold_spin.setDecimals(1)
-        self.threshold_spin.setValue(self.threshold)
-        self.threshold_spin.setToolTip("隣り合う色の色差 ΔE(CIEDE2000)がこれ未満なら「見分けにくい」と警告します")
-        self.threshold_spin.valueChanged.connect(self._view_changed)
-        view_row.addWidget(QLabel("見え方:"))
-        view_row.addWidget(self.cvd_combo)
-        view_row.addSpacing(12)
-        view_row.addWidget(QLabel("警告する ΔE 未満:"))
-        view_row.addWidget(self.threshold_spin)
-        layout.addLayout(view_row)
-
         self.tabs = QTabWidget(self)
         self.gradient_tab = GradientTab(self)
         self.palette_tab = PaletteTab(self)
@@ -637,15 +614,6 @@ class StudioWindow(QWidget):
         tab = self.tabs.currentWidget()
         if hasattr(tab, action):
             getattr(tab, action)()
-
-    def _view_changed(self, *_args):
-        self.cvd_type = self.cvd_combo.currentData()
-        self.threshold = self.threshold_spin.value()
-        self.gradient_tab.bar.set_cvd(self.cvd_type)
-        self.palette_tab.wheel.set_cvd(self.cvd_type)
-        for tab in (self.gradient_tab, self.palette_tab, self.library_tab):
-            if hasattr(tab, "output"):
-                tab.output.refresh_view()
 
     def show_status(self, text):
         self.status.setText(text)

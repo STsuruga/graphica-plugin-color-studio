@@ -1,16 +1,15 @@
-"""作った色の表示(色見本・HEX・色覚の警告)と、ライブラリ・本体への受け渡しの操作。"""
-from PySide6.QtCore import Qt, Signal
+"""作った色の表示(色見本・HEX)と、ライブラリ・本体への受け渡しの操作。"""
+from PySide6.QtCore import Signal
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
-    QDialog, QHBoxLayout, QLabel, QLineEdit, QMenu, QMessageBox, QPushButton, QSizePolicy, QVBoxLayout, QWidget,
+    QDialog, QHBoxLayout, QLineEdit, QMenu, QMessageBox, QPushButton, QSizePolicy, QVBoxLayout, QWidget,
 )
 
-from . import bridge, cvd
+from . import bridge
 from .dialogs import NamedColorsDialog, ask_name
 from .library import LibraryError
 from .swatches import SwatchStrip
 
-_WARN_LIST_LIMIT = 4
 HISTORY_LIMIT = 200
 
 
@@ -50,26 +49,6 @@ class History:
         if self.can_redo():
             self._index += 1
         return self.current
-
-
-def warning_lines(colors, threshold):
-    """見え方ごとに1行の警告と、印を付ける隣どうしの組。"""
-    report = cvd.confusion_report(colors, threshold, adjacent_only=True)
-    lines, pairs = [], []
-    for cvd_type, found in report.items():
-        if not found:
-            continue
-        pairs.extend(found)
-        worst = min(de for *_, de in found)
-        where = (", ".join(f"{i + 1}–{j + 1}" for i, j, _ in found) if len(found) <= _WARN_LIST_LIMIT
-                 else f"隣り合う {len(found)} 組")
-        lines.append(f"{cvd.CVD_LABELS[cvd_type]}: {where} が見分けにくい(最小 ΔE {worst:.1f} < {threshold:g})")
-    return lines, pairs
-
-
-def warning_text_color(widget):
-    """警告の文字色。本体のダークモードでも読めるよう、背景の明るさで選ぶ。"""
-    return "#f2c14e" if widget.palette().window().color().lightness() < 128 else "#b45309"
 
 
 class HandOff:
@@ -177,7 +156,7 @@ class HandOff:
 
 class ColorOutput(QWidget):
     """
-    色見本・HEX・警告と、受け渡しのボタン。
+    色見本・HEX と、受け渡しのボタン。
 
     Signals:
         swatchMenuRequested(QMenu, int): 色見本の右クリックメニューを出す直前。タブが項目を足せる。
@@ -201,12 +180,6 @@ class ColorOutput(QWidget):
         self.strip.swatchClicked.connect(self._copy_one)
         self.strip.swatchMenuRequested.connect(self._swatch_menu)
         layout.addWidget(self.strip)
-
-        self.warnings = QLabel(self)
-        # 折り返すと狭い幅で見積もった高さが確保され、上下に空きができる。警告は1行ずつ短いので折り返さない。
-        self.warnings.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-        self.warnings.setObjectName("colorStudioWarnings")
-        layout.addWidget(self.warnings)
 
         hex_row = QHBoxLayout()
         self.hex_edit = QLineEdit(self)
@@ -251,21 +224,6 @@ class ColorOutput(QWidget):
         enabled = bool(self._colors)
         for b in (self.palette_button, self.named_button, self.apply_button):
             b.setEnabled(enabled)
-        self.refresh_view()
-
-    def refresh_view(self):
-        self.strip.set_cvd(self._studio.cvd_type)
-        lines, pairs = warning_lines(self._colors, self._studio.threshold) if self._colors else ([], [])
-        self.strip.set_warnings(pairs)
-        if lines:
-            self.warnings.setText("⚠ " + "\n⚠ ".join(lines))
-            self.warnings.setStyleSheet(f"color: {warning_text_color(self)};")
-        elif self._colors:
-            self.warnings.setText(f"隣り合う色は、通常・P型・D型・T型のどの見え方でも見分けられます"
-                                  f"(ΔE ≥ {self._studio.threshold:g})。")
-            self.warnings.setStyleSheet("")
-        else:
-            self.warnings.setText("")
 
     def _default_name(self):
         return self._source_fn()[0] if self._source_fn else self._name_hint

@@ -20,14 +20,13 @@ Graphica(https://github.com/STsuruga/Graphica)用プラグイン P-901 カラー
   - グラデーション: ストップ2個以上、位置 0〜1、等間隔に N 色を抽出。補間は OKLab が既定で、RGB / OKLCH / HSV に切替可。
   - 配色パレット: 基準色・画像(k-means)・カラーホイールの3つの作り方、配色ルール9種、点の連動、ランダム、Undo/Redo。
     ホイールは RYB が既定で、RGB 色相環に切替可。
-  - 色覚: P/D/T 型の表示切替、隣り合う色の ΔE(CIEDE2000)が閾値未満なら警告。行列は本体と同じ方式をプラグイン内に持つ。
   - ライブラリ: ctx.data_dir の library.json。保存・一覧・複製・削除、JSON の書き出し / 読み込み。
   - 本体へ: 登録色(名前 → 1色)、配色パレット(色のリスト)、選択中のデータセットへ直接適用(Undo 付き)。
-- 見送ったこと・次の版に回したこと: colormap としての登録(窓口なし)、画像のスポイト、英語 UI。
+- 見送ったこと・次の版に回したこと: 色覚の見え方の切り替え(P/D/T 型)と見分けにくい色の警告は、実機で試したユーザーの判断で外した(2026-09-28。いったん実装したが不要とされた)。colormap としての登録(窓口なし)、画像のスポイト、英語 UI。
 - 本体への要望(2026-09-28 に作成): exe に scipy.cluster を同梱(STsuruga/Graphica#77)、複数データセットの変更を1回の Undo にまとめる窓口と、配色パレットを有効にする窓口(STsuruga/Graphica#78)。
 
 ## 構成
-- color_studio/ の計算モジュール(colors / gradient / harmony / extract / cvd)は Qt にも本体にも依存させない。
+- color_studio/ の計算モジュール(colors / gradient / harmony / extract / library)は Qt にも本体にも依存させない。
 - 本体とのやりとりは bridge.py に集め、ctx のメソッドだけを使う。
 - Qt は qt_image.py / widgets/ / studio_window.py / panel.py だけ。
 
@@ -61,7 +60,7 @@ pip 版で通るテストでは、exe にサブパッケージが無いことに
 
 ## 現状
 - M0〜M5 完了(2026-09-28): 計算モジュール、ライブラリ、受け渡し、ウィジェット、独立ウィンドウとパネル。テスト 152 件。
-  - 計画からの変更: ホイールは QConicalGradient ではなく numpy で画素ごとに描く(RYB の色相対応と色覚の見え方を正確に出すため)。
+  - 計画からの変更: ホイールは QConicalGradient ではなく numpy で画素ごとに描く(RYB の色相対応を正確に出すため)。
   - 計測: k-means(256×256 のノイズ画像、k=10、numpy 版)0.12 秒、ホイール描画(480px、D型)0.5 秒未満。
   - M6 で判明: exe に scipy.cluster が無い → k-means を numpy に置き換え、scipy の import を禁じるテストを追加。
   - 画面の Qt レイアウトの罠: 右の列を QLayout のまま置くと行の高さの上限になり、余りが下の色見本に回った(QWidget に包んで解決)。

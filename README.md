@@ -11,7 +11,6 @@
   補間は OKLab(既定)/ OKLCH / RGB / HSV。
 - **配色パレット生成**: 基準色・画像・カラーホイールから、配色ルール(類似色、モノクロマティック、トライアド、
   補色、スプリットコンプリメンタリー、スクエア、コンパウンド、シェード、カスタム)に沿って作る。
-- **色覚への配慮**: P型・D型・T型の見え方に切り替え、隣り合う色が見分けにくい組を警告する。
 - **ライブラリ**: 作った配色に名前を付けて保存し、JSON で書き出し / 読み込みできる。
 - **Graphica への受け渡し**: 登録色(名前 → 1色)として追加、配色パレット(系列に順に割り当てる色のリスト)
   として登録、選択中のデータセットへ直接適用(Undo 可)。
@@ -60,11 +59,10 @@ python scripts/build_zip.py --all      # dist/color_studio-1.0.0.zip
 color_studio/          ← プラグイン本体(このフォルダ名がインストール先のフォルダ名)
   __init__.py          ← register(api): メニュー「カラースタジオを開く...」とパネル「カラースタジオ」
   plugin.json          ← name / version / api_version
-  colors.py            ← 色空間の変換(sRGB / OKLab / OKLCH / HSV / CIELAB)と CIEDE2000
+  colors.py            ← 色空間の変換(sRGB / OKLab / OKLCH / HSV)
   gradient.py          ← グラデーションと等間隔の抽出
   harmony.py           ← カラーホイール(RYB / RGB)と配色ルール
   extract.py           ← 画像の代表色(k-means)
-  cvd.py               ← 色覚の見え方と、見分けにくい組の判定
   library.py           ← ライブラリ(ctx.data_dir の library.json)
   bridge.py            ← 本体への受け渡し(登録色・配色パレット・選択中のデータセット)
   wheel.py / gradient_bar.py / swatches.py   ← ウィジェット
@@ -75,7 +73,7 @@ tests/                 ← pytest
 scripts/build_zip.py   ← 配布用 zip のビルド
 ```
 
-上の6つ(colors〜library)は Qt にも Graphica 本体にも依存しない純粋な計算で、単体テストしています。
+上の5つ(colors〜library)は Qt にも Graphica 本体にも依存しない純粋な計算で、単体テストしています。
 本体とのやりとりは bridge.py に集め、窓口 `ctx`(PluginContext)のメソッドだけを使います。
 
 ## ライセンス

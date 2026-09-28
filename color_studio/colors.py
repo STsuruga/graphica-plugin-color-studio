@@ -30,12 +30,6 @@ _LINEAR_FROM_LMS = np.array([
     [-1.2684380046, 2.6097574011, -0.3413193965],
     [-0.0041960863, -0.7034186147, 1.7076147010],
 ])
-_XYZ_FROM_LINEAR = np.array([
-    [0.4124564, 0.3575761, 0.1804375],
-    [0.2126729, 0.7151522, 0.0721750],
-    [0.0193339, 0.1191920, 0.9503041],
-])
-_D65_WHITE = np.array([0.95047, 1.0, 1.08883])
 
 # 色域の判定の許容幅。変換の丸めで 1.0000001 などになるのを色域外と見なさない。
 _GAMUT_EPS = 1e-6
@@ -165,59 +159,3 @@ def oklch_to_hex(lch):
     return oklab_to_hex(oklch_to_oklab(lch))
 
 
-def rgb_to_cielab(rgb):
-    """CIE L*a*b*(D65)。CIEDE2000 の入力に使う。"""
-    xyz = srgb_to_linear(rgb) @ _XYZ_FROM_LINEAR.T / _D65_WHITE
-    delta = 6 / 29
-    f = np.where(xyz > delta ** 3, np.cbrt(xyz), xyz / (3 * delta ** 2) + 4 / 29)
-    return np.stack([116 * f[..., 1] - 16, 500 * (f[..., 0] - f[..., 1]), 200 * (f[..., 1] - f[..., 2])], axis=-1)
-
-
-def delta_e_2000(lab1, lab2):
-    """CIEDE2000(kL = kC = kH = 1)。Sharma, Wu, Dalal (2005) の式。"""
-    L1, a1, b1 = (float(v) for v in lab1)
-    L2, a2, b2 = (float(v) for v in lab2)
-    c_bar = (np.hypot(a1, b1) + np.hypot(a2, b2)) / 2
-    g = 0.5 * (1 - np.sqrt(c_bar ** 7 / (c_bar ** 7 + 25.0 ** 7)))
-    a1p, a2p = (1 + g) * a1, (1 + g) * a2
-    c1p, c2p = np.hypot(a1p, b1), np.hypot(a2p, b2)
-    h1p = np.degrees(np.arctan2(b1, a1p)) % 360.0 if c1p else 0.0
-    h2p = np.degrees(np.arctan2(b2, a2p)) % 360.0 if c2p else 0.0
-
-    dL = L2 - L1
-    dC = c2p - c1p
-    if c1p * c2p == 0:
-        dh = 0.0
-    elif abs(h2p - h1p) <= 180:
-        dh = h2p - h1p
-    elif h2p - h1p > 180:
-        dh = h2p - h1p - 360
-    else:
-        dh = h2p - h1p + 360
-    dH = 2 * np.sqrt(c1p * c2p) * np.sin(np.radians(dh / 2))
-
-    L_bar = (L1 + L2) / 2
-    c_bar_p = (c1p + c2p) / 2
-    if c1p * c2p == 0:
-        h_bar = h1p + h2p
-    elif abs(h1p - h2p) <= 180:
-        h_bar = (h1p + h2p) / 2
-    elif h1p + h2p < 360:
-        h_bar = (h1p + h2p + 360) / 2
-    else:
-        h_bar = (h1p + h2p - 360) / 2
-
-    t = (1 - 0.17 * np.cos(np.radians(h_bar - 30)) + 0.24 * np.cos(np.radians(2 * h_bar))
-         + 0.32 * np.cos(np.radians(3 * h_bar + 6)) - 0.20 * np.cos(np.radians(4 * h_bar - 63)))
-    d_theta = 30 * np.exp(-(((h_bar - 275) / 25) ** 2))
-    r_c = 2 * np.sqrt(c_bar_p ** 7 / (c_bar_p ** 7 + 25.0 ** 7))
-    s_l = 1 + 0.015 * (L_bar - 50) ** 2 / np.sqrt(20 + (L_bar - 50) ** 2)
-    s_c = 1 + 0.045 * c_bar_p
-    s_h = 1 + 0.015 * c_bar_p * t
-    r_t = -np.sin(np.radians(2 * d_theta)) * r_c
-    return float(np.sqrt((dL / s_l) ** 2 + (dC / s_c) ** 2 + (dH / s_h) ** 2
-                         + r_t * (dC / s_c) * (dH / s_h)))
-
-
-def delta_e_hex(hex1, hex2):
-    return delta_e_2000(rgb_to_cielab(hex_to_rgb(hex1)), rgb_to_cielab(hex_to_rgb(hex2)))

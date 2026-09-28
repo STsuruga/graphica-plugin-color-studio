@@ -38,12 +38,10 @@ def test_wheel_image_layout():
     assert _hue_at(ryb, 198, 100) == pytest.approx(95, abs=4)   # RYB の下(180°)は緑 = 赤の補色
 
 
-def test_wheel_image_respects_cvd_and_brightness():
-    normal = render_wheel_rgba(51, "ryb")
-    deut = render_wheel_rgba(51, "ryb", cvd_type="deuteranopia")
+def test_wheel_image_respects_brightness():
     dark = render_wheel_rgba(51, "ryb", brightness=0.5)
-    assert not np.array_equal(normal, deut)
     assert dark[25, 25, :3].max() == 128
+    assert dark.dtype == np.uint8
 
 
 def _show(widget, w=320, h=320):
@@ -128,15 +126,12 @@ def test_gradient_bar_double_click_handle_requests_color():
     assert asked == [0]
 
 
-def test_swatch_click_and_warning_marks():
+def test_swatch_click():
     strip = _show(SwatchStrip(), 500, 80)
     strip.set_colors(["#c0504d", "#9bbb59", "#1f77b4"], base_index=0)
-    strip.set_warnings([(0, 1, 7.8), (0, 2, 5.0)])
-    assert strip._warn_pairs == {(0, 1)}
     clicked = []
     strip.swatchClicked.connect(clicked.append)
     QTest.mouseClick(strip, Qt.MouseButton.LeftButton, pos=strip._cell(2).center().toPoint())
     assert clicked == [2]
     assert strip.index_at(QPointF(-5, 5)) is None
-    strip.set_cvd("tritanopia")
     strip.grab()

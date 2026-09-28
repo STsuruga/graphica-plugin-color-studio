@@ -1,14 +1,12 @@
-"""色見本の列。クリックで HEX をコピーする合図を出し、見分けにくい隣どうしに印を付ける。"""
+"""色見本の列。クリックで HEX をコピーする合図を出す。"""
 from PySide6.QtCore import QPoint, QRectF, Qt, Signal
 from PySide6.QtGui import QColor, QFontMetrics, QPainter, QPen
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
-from . import cvd
 
 _GAP = 4
 _SWATCH_HEIGHT = 44
 _LABEL_HEIGHT = 18
-_WARN_HEIGHT = 5
 _MIN_WIDTH_FOR_HEX = 58
 
 
@@ -25,12 +23,10 @@ class SwatchStrip(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.setMinimumHeight(_SWATCH_HEIGHT + _LABEL_HEIGHT + _WARN_HEIGHT + 4)
+        self.setMinimumHeight(_SWATCH_HEIGHT + _LABEL_HEIGHT + 2)
         self.setMouseTracking(True)
         self.setAccessibleName("色見本")
         self._colors = []
-        self._cvd = None
-        self._warn_pairs = set()
         self._base_index = None
 
     def sizeHint(self):
@@ -42,15 +38,6 @@ class SwatchStrip(QWidget):
         self._colors = list(colors)
         self._base_index = base_index
         self.setAccessibleDescription(" ".join(self._colors))
-        self.update()
-
-    def set_cvd(self, cvd_type):
-        self._cvd = cvd_type
-        self.update()
-
-    def set_warnings(self, pairs):
-        """pairs: [(i, j, ΔE), ...]。隣どうし(j == i + 1)だけ印を付ける。"""
-        self._warn_pairs = {(i, j) for i, j, *_ in pairs if j == i + 1}
         self.update()
 
     def colors(self):
@@ -77,7 +64,7 @@ class SwatchStrip(QWidget):
         for i, color in enumerate(self._colors):
             cell = self._cell(i)
             painter.setPen(QPen(self.palette().mid().color(), 1))
-            painter.setBrush(QColor(cvd.simulate_hex(color, self._cvd)))
+            painter.setBrush(QColor(color))
             painter.drawRoundedRect(cell, 4, 4)
             if i == self._base_index:
                 painter.setPen(QPen(QColor("white"), 2))
@@ -89,14 +76,6 @@ class SwatchStrip(QWidget):
             painter.setPen(text_color)
             painter.drawText(QRectF(cell.left(), cell.bottom() + 2, cell.width(), _LABEL_HEIGHT),
                              Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop, label)
-        warn_color = QColor("#d97706")
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(warn_color)
-        top = _SWATCH_HEIGHT + _LABEL_HEIGHT + 2
-        for i, j in self._warn_pairs:
-            if j < len(self._colors):
-                a, b = self._cell(i), self._cell(j)
-                painter.drawRoundedRect(QRectF(a.center().x(), top, b.center().x() - a.center().x(), _WARN_HEIGHT), 2, 2)
         painter.end()
 
     def mouseMoveEvent(self, event):

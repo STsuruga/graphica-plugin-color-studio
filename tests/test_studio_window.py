@@ -218,15 +218,11 @@ def test_copy_all_hex(tmp_path):
     assert QGuiApplication.clipboard().text() == ", ".join(win.gradient_tab.output.colors())
 
 
-def test_cvd_view_and_threshold_update_warnings(tmp_path):
+def test_loaded_palette_is_shown_as_is(tmp_path):
     win = studio_window.open_studio(_ctx(tmp_path))
     tab = win.palette_tab
     tab.load(Harmony().with_colors(["#c0504d", "#9bbb59", "#1f77b4"]))
-    assert "D型" in tab.output.warnings.text()
-    win.threshold_spin.setValue(5.0)
-    assert "見分けられます" in tab.output.warnings.text()
-    win.cvd_combo.setCurrentIndex(win.cvd_combo.findData("deuteranopia"))
-    assert tab.output.strip._cvd == "deuteranopia" and tab.wheel._cvd == "deuteranopia"
+    assert tab.output.strip.colors() == ["#c0504d", "#9bbb59", "#1f77b4"]
     win.grab()
 
 
@@ -315,6 +311,6 @@ def test_wheel_render_is_cheap_enough():
     import time
     from color_studio.wheel import render_wheel_rgba
     t0 = time.perf_counter()
-    render_wheel_rgba(480, "ryb", 0.9, "deuteranopia")
+    render_wheel_rgba(480, "ryb", 0.9)
     assert time.perf_counter() - t0 < 0.5
     assert np.asarray(render_wheel_rgba(8)).dtype == np.uint8

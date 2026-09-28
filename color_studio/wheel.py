@@ -1,14 +1,13 @@
 """カラーホイールのウィジェット。
 
-円は numpy で画素ごとに計算して QImage にする(RYB の色相対応と色覚の見え方を画素単位で正確に出すため、
-QConicalGradient の補間では足りない)。角度は上が 0 度で時計回り、半径が彩度。
+円は numpy で画素ごとに計算して QImage にする(RYB の色相対応は非線形で、QConicalGradient の補間では
+正確に出ないため)。角度は上が 0 度で時計回り、半径が彩度。
 """
 import numpy as np
 from PySide6.QtCore import QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QColor, QImage, QPainter, QPen
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
-from . import cvd
 from .harmony import ryb_to_rgb_hues, wheel_to_hex
 
 _HIT_RADIUS = 14
@@ -32,7 +31,7 @@ def _hsv_to_rgb_array(h, s, v):
     return np.stack([r + m, g + m, b + m], axis=-1)
 
 
-def render_wheel_rgba(size, wheel="ryb", brightness=1.0, cvd_type=None):
+def render_wheel_rgba(size, wheel="ryb", brightness=1.0):
     """直径 size の円を (size, size, 4) の uint8 RGBA で返す。円の外は透明。"""
     coords = (np.arange(size) + 0.5 - size / 2) / (size / 2)
     x, y = np.meshgrid(coords, coords)
@@ -40,7 +39,6 @@ def render_wheel_rgba(size, wheel="ryb", brightness=1.0, cvd_type=None):
     angle = np.degrees(np.arctan2(x, -y)) % 360.0
     hue = ryb_to_rgb_hues(angle) if wheel == "ryb" else angle
     rgb = _hsv_to_rgb_array(hue, np.clip(radius, 0, 1), np.full_like(radius, float(brightness)))
-    rgb = cvd.simulate_rgb_array(rgb, cvd_type)
     # 縁を1画素ぶん滑らかにする
     alpha = np.clip((1.0 - radius) * size / 2 + 0.5, 0.0, 1.0)
     rgba = np.concatenate([rgb, alpha[..., None]], axis=-1)
@@ -68,7 +66,6 @@ class ColorWheel(QWidget):
         self.setAccessibleName("カラーホイール")
         self._wheel = "ryb"
         self._brightness = 1.0
-        self._cvd = None
         self._points = []
         self._base_index = 0
         self._selected = 0
@@ -84,10 +81,6 @@ class ColorWheel(QWidget):
 
     def set_brightness(self, v):
         self._brightness = float(v)
-        self.update()
-
-    def set_cvd(self, cvd_type):
-        self._cvd = cvd_type
         self.update()
 
     def set_points(self, points, base_index=0):
@@ -133,9 +126,9 @@ class ColorWheel(QWidget):
     # --- 描画 ---
 
     def _wheel_image(self, diameter):
-        key = (diameter, self._wheel, round(self._brightness, 3), self._cvd)
+        key = (diameter, self._wheel, round(self._brightness, 3))
         if key != self._cache_key:
-            rgba = render_wheel_rgba(diameter, self._wheel, self._brightness, self._cvd)
+            rgba = render_wheel_rgba(diameter, self._wheel, self._brightness)
             self._cache_image = QImage(rgba.data, diameter, diameter, 4 * diameter,
                                        QImage.Format.Format_RGBA8888).copy()
             self._cache_key = key
@@ -161,7 +154,7 @@ class ColorWheel(QWidget):
             pos = self.point_position(p)
             r = _BASE_POINT_RADIUS if i == self._base_index else _POINT_RADIUS
             painter.setPen(QPen(QColor(0, 0, 0, 150), 1))
-            painter.setBrush(QColor(cvd.simulate_hex(wheel_to_hex(p, self._wheel), self._cvd)))
+            painter.setBrush(QColor(wheel_to_hex(p, self._wheel)))
             painter.drawEllipse(pos, r + 1.5, r + 1.5)
             painter.setPen(QPen(QColor("white"), 3 if i == self._base_index else 2))
             painter.drawEllipse(pos, r, r)

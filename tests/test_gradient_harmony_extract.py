@@ -15,6 +15,10 @@ from color_studio.harmony import (  # noqa: E402
 )
 
 
+def oklab_distance(a, b):
+    return float(np.linalg.norm(C.hex_to_oklab(a) - C.hex_to_oklab(b)))
+
+
 def G(*pairs, space="oklab", count=5):
     return Gradient(stops=tuple(Stop(p, c) for p, c in pairs), space=space, count=count)
 
@@ -104,7 +108,7 @@ def test_add_remove_and_even_spacing():
     assert g2.stops[-1].position == 0.5
     # 途中の色で足すので見た目は変わらない(足した点の HEX への丸めの分だけずれる)
     for a, b in zip(g2.sample(5), g.sample(5)):
-        assert C.delta_e_hex(a, b) < 0.5
+        assert oklab_distance(a, b) < 0.005
     assert len(g2.with_stop_removed(2).stops) == 2
     with pytest.raises(C.ColorError):
         g.with_stop_removed(0)
@@ -257,7 +261,7 @@ def test_recovers_block_colors_largest_first():
     noisy = np.clip(img.astype(int) + rng.integers(-4, 5, img.shape), 0, 255).astype(np.uint8)
     got = dominant_colors(noisy, 3)
     for g, want in zip(got, ["#e76f51", "#e9c46a", "#264653"]):
-        assert C.delta_e_hex(g, want) < 2.0
+        assert oklab_distance(g, want) < 0.02
 
 
 def test_fewer_distinct_colors_than_k():
