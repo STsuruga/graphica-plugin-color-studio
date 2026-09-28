@@ -52,6 +52,11 @@ def ryb_to_rgb_hue(angle):
     return float(np.interp(float(angle) % 360.0, _RYB_ANCHORS, _RGB_ANCHORS))
 
 
+def ryb_to_rgb_hues(angles):
+    """配列版(ホイールの描画用)。"""
+    return np.interp(np.asarray(angles, dtype=float) % 360.0, _RYB_ANCHORS, _RGB_ANCHORS)
+
+
 def rgb_to_ryb_hue(hue):
     return float(np.interp(float(hue) % 360.0, _RGB_ANCHORS, _RYB_ANCHORS))
 
