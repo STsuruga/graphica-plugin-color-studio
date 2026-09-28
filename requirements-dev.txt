@@ -1,0 +1,3 @@
+# テスト実行に必要なもの。Graphica 本体は別に入れる(README の「開発環境」参照):
+#     pip install "graphica-plot>=2.0,<3"
+pytest==9.1.1
