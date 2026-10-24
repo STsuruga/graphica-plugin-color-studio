@@ -76,10 +76,11 @@ QSettings.setDefaultFormat(IniFormat) にしても、本体は設定をレジス
   - 計測: k-means(256×256 のノイズ画像、k=10、numpy 版)0.12 秒、ホイール描画(480px)0.5 秒未満。
   - exe に scipy.cluster が無い → k-means を numpy で自前に持ち、scipy の import を禁じるテストを置いた(Graphica#77)。
   - 画面の Qt レイアウトの罠: 右の列を QLayout のまま置くと行の高さの上限になり、余りが下の色見本に回った(QWidget に包んで解決)。
-- v1.1.0(作業中、2026-10-24): 本体 v2.6.0 の新しい画面に合わせる。api_version 2.2(本体 2.6.0 以上でだけ読み込まれる)。
+- v1.1.0 をリリース(2026-10-24): https://github.com/STsuruga/graphica-plugin-color-studio/releases/tag/v1.1.0
+  本体 v2.6.0 の新しい画面に合わせた。api_version 2.2(本体 2.6.0 以上でだけ読み込まれる)。
   - パネルの下のボタンを2段に(「開いて編集」「選択中に適用」/「配色パレットに登録...」)。幅 280px で欠けないことをテストで確かめる。
   - ウィンドウの設定を ui.section の節に、補間・色相環を ui.SegmentedControl に。色のボタンは自前で描く ColorButton。
   - 済んだ操作(保存・登録・適用・コピー・書き出し・読み込み)は ui.show_toast でも知らせる。案内とエラーは今までどおり。
   - 本体の release/v2.6.0 を editable で入れてテスト 147 件と、ライト・ダークの画面を確認。
-  - 公開は PyPI に graphica-plot 2.6.0 が出てから(CI は PyPI の本体でテストする。2026-10-24 時点の PyPI は 2.5.0)。
+  - PyPI の graphica-plot 2.6.0 で CI 通過(147 passed)。PR #1 でマージ。
 - 次の版の候補: Graphica#78 が入ったら「選択中に適用」を1回の Undo にまとめ、「配色パレットに登録」で有効にもする(API 2.1)。
