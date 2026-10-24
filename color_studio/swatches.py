@@ -1,7 +1,9 @@
-"""色見本の列。クリックで HEX をコピーする合図を出す。"""
+"""色見本の列(クリックで HEX をコピーする合図を出す)と、今の色を見せる色のボタン。"""
 from PySide6.QtCore import QPoint, QRectF, Qt, Signal
 from PySide6.QtGui import QColor, QFontMetrics, QPainter, QPen
-from PySide6.QtWidgets import QSizePolicy, QWidget
+from PySide6.QtWidgets import QPushButton, QSizePolicy, QWidget
+
+from .theme import theme_qcolor
 
 
 _GAP = 4
@@ -59,11 +61,12 @@ class SwatchStrip(QWidget):
             return
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        text_color = self.palette().text().color()
+        text_color = theme_qcolor(self, "text_primary")
+        outline = theme_qcolor(self, "border_strong")
         fm = QFontMetrics(self.font())
         for i, color in enumerate(self._colors):
             cell = self._cell(i)
-            painter.setPen(QPen(self.palette().mid().color(), 1))
+            painter.setPen(QPen(outline, 1))
             painter.setBrush(QColor(color))
             painter.drawRoundedRect(cell, 4, 4)
             if i == self._base_index:
@@ -92,3 +95,32 @@ class SwatchStrip(QWidget):
         elif event.button() == Qt.MouseButton.RightButton:
             self.swatchMenuRequested.emit(i, event.globalPosition().toPoint())
         return None
+
+
+class ColorButton(QPushButton):
+    """押すと色を選ぶボタン。本体のボタンの形の上に今の色を描く(色を直書きした QSS は使わない)。"""
+
+    def __init__(self, tooltip, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(36, 24)
+        self.setToolTip(tooltip)
+        self._color = None
+
+    def color(self):
+        return self._color
+
+    def set_color(self, color):
+        self._color = color
+        self.setAccessibleName(color)
+        self.update()
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if not self._color:
+            return
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(QPen(theme_qcolor(self, "border_strong"), 1))
+        painter.setBrush(QColor(self._color))
+        painter.drawRoundedRect(QRectF(self.rect()).adjusted(4.5, 4.5, -4.5, -4.5), 3, 3)
+        painter.end()

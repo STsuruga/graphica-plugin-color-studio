@@ -9,6 +9,7 @@ from PySide6.QtGui import QColor, QImage, QPainter, QPen
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
 from .harmony import ryb_to_rgb_hues, wheel_to_hex
+from .theme import theme_qcolor
 
 _HIT_RADIUS = 14
 _POINT_RADIUS = 8
@@ -159,7 +160,7 @@ class ColorWheel(QWidget):
             painter.setPen(QPen(QColor("white"), 3 if i == self._base_index else 2))
             painter.drawEllipse(pos, r, r)
             if i == self._selected and self.hasFocus():
-                painter.setPen(QPen(self.palette().highlight().color(), 2, Qt.PenStyle.DotLine))
+                painter.setPen(QPen(theme_qcolor(self, "accent"), 2, Qt.PenStyle.DotLine))
                 painter.setBrush(Qt.BrushStyle.NoBrush)
                 painter.drawEllipse(pos, r + 5, r + 5)
         painter.end()

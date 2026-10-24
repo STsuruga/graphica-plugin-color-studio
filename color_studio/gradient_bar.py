@@ -4,6 +4,7 @@ from PySide6.QtGui import QColor, QImage, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
 from .colors import ColorError
+from .theme import theme_qcolor
 
 _MARGIN = 10
 _BAR_HEIGHT = 36
@@ -107,7 +108,7 @@ class GradientBar(QWidget):
         bar = self._bar_rect()
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         painter.drawImage(bar, self._preview_image())
-        painter.setPen(QPen(self.palette().mid().color(), 1))
+        painter.setPen(QPen(theme_qcolor(self, "border_strong"), 1))
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawRect(bar)
 
@@ -132,7 +133,7 @@ class GradientBar(QWidget):
             path.lineTo(x - _HANDLE_HALF_WIDTH, top + 7)
             path.closeSubpath()
             selected = i == self._selected
-            pen_color = self.palette().highlight().color() if selected else self.palette().text().color()
+            pen_color = theme_qcolor(self, "accent" if selected else "text_primary")
             painter.setPen(QPen(pen_color, 2.5 if selected else 1))
             painter.setBrush(QColor(stop.color))
             painter.drawPath(path)

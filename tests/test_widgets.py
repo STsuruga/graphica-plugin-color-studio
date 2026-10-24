@@ -135,3 +135,23 @@ def test_swatch_click():
     assert clicked == [2]
     assert strip.index_at(QPointF(-5, 5)) is None
     strip.grab()
+
+
+def test_theme_color_follows_the_host_or_falls_back(monkeypatch):
+    from conftest import GRAPHICA_AVAILABLE
+    from color_studio.theme import theme_qcolor
+    strip = SwatchStrip()
+    if GRAPHICA_AVAILABLE:
+        from graphica.plugin import ui
+        assert theme_qcolor(strip, "accent").name() == ui.theme_color("accent").lower()
+    monkeypatch.setitem(sys.modules, "graphica.plugin", None)  # 本体が無いとき
+    assert theme_qcolor(strip, "accent") == strip.palette().highlight().color()
+
+
+def test_color_button_paints_the_color():
+    from color_studio.swatches import ColorButton
+    button = _show(ColorButton("色"), 36, 24)
+    button.set_color("#ff0000")
+    assert button.color() == "#ff0000" and button.accessibleName() == "#ff0000"
+    image = button.grab().toImage()
+    assert image.pixelColor(image.width() // 2, image.height() // 2).name() == "#ff0000"
