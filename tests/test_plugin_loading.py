@@ -32,7 +32,7 @@ def test_loads_like_graphica(tmp_path):
     api, record = load_plugin_like_graphica(PLUGIN_DIR, work_dir=str(tmp_path))
     assert record["error"] is None
     assert api.registration_errors == []
-    assert record["info"]["version"] == "1.0.0"
+    assert record["info"]["version"] == "1.1.0"
 
 
 @requires_graphica

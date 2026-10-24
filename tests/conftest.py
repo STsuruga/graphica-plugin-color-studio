@@ -2,7 +2,7 @@
 """
 テスト共通のフィクスチャ。
 
-Graphica本体(graphica.plugin.testing)は仮想環境に `pip install "graphica-plot>=2.0,<3"` で
+Graphica本体(graphica.plugin.testing)は仮想環境に `pip install "graphica-plot>=2.6,<3"` で
 入れておく。入っていない環境では、本体に依存しない純粋な計算のテストだけが走り、
 配線・読み込み・画面のテストは skip される(README の「開発環境」参照)。
 """
@@ -26,7 +26,7 @@ except ImportError:
 
 requires_graphica = pytest.mark.skipif(
     not GRAPHICA_AVAILABLE,
-    reason='Graphica本体が未インストールです(pip install "graphica-plot>=2.0,<3")',
+    reason='Graphica本体が未インストールです(pip install "graphica-plot>=2.6,<3")',
 )
 
 requires_qt = pytest.mark.skipif(QApplication is None, reason="PySide6 が未インストールです")

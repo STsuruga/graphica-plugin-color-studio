@@ -15,11 +15,13 @@
 
 ## インストール(利用者向け)
 
+Graphica 2.6.0 以上(プラグイン API 2.2)が必要です。それより前の Graphica では v1.0.0 を使ってください。
+
 1. [Releases](https://github.com/STsuruga/graphica-plugin-color-studio/releases) から
    `color_studio-<version>.zip` をダウンロード
 2. Graphica を起動し、**編集 ▸ 環境設定 ▸「プラグイン」タブ ▸ プラグインをインストール...** から zip を選ぶ
 3. Graphica を再起動すると、「プラグイン」メニューに「カラースタジオを開く...」が出ます。
-   ライブラリの一覧を常に出しておくドックパネル「カラースタジオ」も、プラグインメニューから表示できます。
+   ライブラリの一覧を出しておくパネル「カラースタジオ」は、左端の帯の「プラグイン」ページにあります。
 
 ### 登録色と配色パレットの違い
 
@@ -35,7 +37,7 @@
 ```bash
 python -m venv .venv                   # Python 3.11 以上
 .venv\Scripts\activate                 # macOS / Linux は source .venv/bin/activate
-pip install "graphica-plot>=2.0,<3"
+pip install "graphica-plot>=2.6,<3"
 pip install -r requirements-dev.txt
 pytest
 ```
@@ -46,7 +48,7 @@ Graphica 本体が入っていない環境では、本体を必要とするテ�
 ## 配布用 zip のビルド
 
 ```bash
-python scripts/build_zip.py --all      # dist/color_studio-1.0.0.zip
+python scripts/build_zip.py --all      # dist/color_studio-1.1.0.zip
 ```
 
 `dist/` はコミットせず、zip は Releases に添付します。
@@ -63,10 +65,10 @@ color_studio/          ← プラグイン本体(このフォルダ名がイン�
   extract.py           ← 画像の代表色(k-means)
   library.py           ← ライブラリ(ctx.data_dir の library.json)
   bridge.py            ← 本体への受け渡し(登録色・配色パレット・選択中のデータセット)
-  wheel.py / gradient_bar.py / swatches.py   ← ウィジェット
+  wheel.py / gradient_bar.py / swatches.py   ← ウィジェット(色は theme.py で本体のテーマから読む)
   output.py / dialogs.py / qt_image.py       ← 画面の部品
   studio_window.py     ← 独立ウィンドウ(グラデーション / 配色パレット / ライブラリ)
-  panel.py             ← ドックパネル(ライブラリの一覧)
+  panel.py             ← 「プラグイン」ページのパネル(ライブラリの一覧)
 tests/                 ← pytest
 scripts/build_zip.py   ← 配布用 zip のビルド
 ```

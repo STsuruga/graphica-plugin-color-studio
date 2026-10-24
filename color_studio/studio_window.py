@@ -3,12 +3,13 @@
 タブ(PlotterApp)ごとに1つ。親をそのタブにするので、タブを閉じると一緒に破棄される。
 閉じるボタンでは隠すだけにして、次に開いたときに作業の続きから始められるようにする。
 """
-from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QColor, QKeySequence, QPixmap, QShortcut
+from graphica.plugin import ui  # このモジュールはウィンドウ・パネルを作るときにだけ読み込まれる
+from PySide6.QtCore import QRectF, QSize, Qt
+from PySide6.QtGui import QColor, QKeySequence, QPainter, QPen, QPixmap, QShortcut
 from PySide6.QtWidgets import (
-    QAbstractItemView, QColorDialog, QComboBox, QDoubleSpinBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout,
-    QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox, QPushButton, QSizePolicy, QSlider, QSpinBox,
-    QTabWidget, QVBoxLayout, QWidget,
+    QAbstractItemView, QColorDialog, QComboBox, QDoubleSpinBox, QFileDialog, QHBoxLayout, QLabel, QLineEdit,
+    QListWidget, QListWidgetItem, QMessageBox, QPushButton, QSizePolicy, QSlider, QSpinBox, QTabWidget,
+    QVBoxLayout, QWidget,
 )
 
 from . import colors as C
@@ -21,22 +22,45 @@ from .harmony import Harmony
 from .library import KIND_LABELS, LibraryError, get_library
 from .output import ColorOutput, History
 from .qt_image import image_file_filter, load_image
+from .swatches import ColorButton
+from .theme import theme_qcolor
 from .wheel import ColorWheel
 
 WINDOW_TITLE = "カラースタジオ"
 _THUMB_SIDE = 96
 
 
-def _color_button(tooltip):
-    button = QPushButton()
-    button.setFixedSize(36, 24)
-    button.setToolTip(tooltip)
-    return button
+def _segmented(items, parent):
+    """選択肢の少ない欄。items は (説明つきの名前, 値)。ボタンには括弧の前の短い名前を出し、全体はツールチップに。"""
+    control = ui.SegmentedControl(parent)
+    for label, value in items:
+        control.addItem(label.split("(")[0], value, label)
+    return control
 
 
-def _paint_color_button(button, color):
-    button.setStyleSheet(f"QPushButton {{ background: {color}; border: 1px solid palette(mid); border-radius: 3px; }}")
-    button.setAccessibleName(color)
+def _left(*widgets):
+    """フォームの欄を左に寄せて並べる(数値の欄などを横いっぱいに伸ばさない)。"""
+    box = QWidget()
+    row = QHBoxLayout(box)
+    row.setContentsMargins(0, 0, 0, 0)
+    for w in widgets:
+        row.addWidget(w)
+    row.addStretch(1)
+    return box
+
+
+class _ImageThumb(QLabel):
+    """画像の縮小表示。画像が無い間は点線の枠(テーマの色)を描く。"""
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        pixmap = self.pixmap()
+        if pixmap is not None and not pixmap.isNull():
+            return
+        painter = QPainter(self)
+        painter.setPen(QPen(theme_qcolor(self, "border_strong"), 1, Qt.PenStyle.DashLine))
+        painter.drawRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5))
+        painter.end()
 
 
 def _pick_color(parent, initial, title):
@@ -72,23 +96,41 @@ class GradientTab(QWidget):
         self.bar.stopColorRequested.connect(self._pick_stop_color)
         layout.addWidget(self.bar)
 
-        row = QHBoxLayout()
-        self.space_combo = QComboBox(self)
-        for key in gradient.SPACES:
-            self.space_combo.addItem(gradient.SPACE_LABELS[key], key)
-        self.space_combo.currentIndexChanged.connect(
-            lambda _i: self._commit(Gradient(self._state.stops, self.space_combo.currentData(), self._state.count)))
+        # 抽出の設定と、選んでいる色の点は、本体のインスペクタと同じ節にして左右に並べる
+        sections = QHBoxLayout()
+        extract_box, extract_form = ui.section("抽出")
+        self.space_control = _segmented(
+            [(gradient.SPACE_LABELS[key], key) for key in gradient.SPACES], self)
+        self.space_control.currentIndexChanged.connect(
+            lambda _i: self._commit(Gradient(self._state.stops, self.space_control.currentData(), self._state.count)))
         self.count_spin = QSpinBox(self)
         self.count_spin.setRange(gradient.MIN_COUNT, gradient.MAX_COUNT)
         self.count_spin.setKeyboardTracking(False)
         self.count_spin.valueChanged.connect(
             lambda n: self._commit(Gradient(self._state.stops, self._state.space, n)))
-        row.addWidget(QLabel("補間:"))
-        row.addWidget(self.space_combo)
-        row.addSpacing(12)
-        row.addWidget(QLabel("抽出する色の数:"))
-        row.addWidget(self.count_spin)
-        row.addStretch(1)
+        extract_form.addRow("補間", self.space_control)
+        extract_form.addRow("色の数", _left(self.count_spin))
+        sections.addWidget(extract_box, 1)
+
+        stop_box, stop_form = ui.section("選んでいる色の点")
+        self.position_spin = QDoubleSpinBox(self)
+        self.position_spin.setRange(0.0, 1.0)
+        self.position_spin.setDecimals(3)
+        self.position_spin.setSingleStep(0.01)
+        self.position_spin.setKeyboardTracking(False)
+        self.position_spin.valueChanged.connect(self._position_edited)
+        self.stop_color_button = ColorButton("クリックで色を選ぶ", self)
+        self.stop_color_button.clicked.connect(lambda: self._pick_stop_color(self.bar.selected_index()))
+        self.stop_hex = QLineEdit(self)
+        self.stop_hex.setMaximumWidth(100)
+        self.stop_hex.setPlaceholderText("#rrggbb")
+        self.stop_hex.editingFinished.connect(self._hex_edited)
+        stop_form.addRow("位置 (0〜1)", _left(self.position_spin))
+        stop_form.addRow("色", _left(self.stop_color_button, self.stop_hex))
+        sections.addWidget(stop_box, 1)
+        layout.addLayout(sections)
+
+        row = QHBoxLayout()
         for text, handler, tip in (
             ("反転", lambda: self._commit(self._state.reversed()), "グラデーションの向きを逆にします"),
             ("点を追加", lambda: self._add_stop(), "いちばん広い隙間の中央に点を足します"),
@@ -99,36 +141,14 @@ class GradientTab(QWidget):
             b.setToolTip(tip)
             b.clicked.connect(handler)
             row.addWidget(b)
-        layout.addLayout(row)
-
-        stop_box = QGroupBox("選んでいる色の点", self)
-        form = QHBoxLayout(stop_box)
-        self.position_spin = QDoubleSpinBox(stop_box)
-        self.position_spin.setRange(0.0, 1.0)
-        self.position_spin.setDecimals(3)
-        self.position_spin.setSingleStep(0.01)
-        self.position_spin.setKeyboardTracking(False)
-        self.position_spin.valueChanged.connect(self._position_edited)
-        self.stop_color_button = _color_button("クリックで色を選ぶ")
-        self.stop_color_button.clicked.connect(lambda: self._pick_stop_color(self.bar.selected_index()))
-        self.stop_hex = QLineEdit(stop_box)
-        self.stop_hex.setMaximumWidth(100)
-        self.stop_hex.setPlaceholderText("#rrggbb")
-        self.stop_hex.editingFinished.connect(self._hex_edited)
-        form.addWidget(QLabel("位置 (0〜1):"))
-        form.addWidget(self.position_spin)
-        form.addSpacing(12)
-        form.addWidget(QLabel("色:"))
-        form.addWidget(self.stop_color_button)
-        form.addWidget(self.stop_hex)
-        form.addStretch(1)
-        self.undo_button = QPushButton("元に戻す", stop_box)
-        self.redo_button = QPushButton("やり直し", stop_box)
+        row.addStretch(1)
+        self.undo_button = QPushButton("元に戻す", self)
+        self.redo_button = QPushButton("やり直し", self)
         self.undo_button.clicked.connect(self.undo)
         self.redo_button.clicked.connect(self.redo)
-        form.addWidget(self.undo_button)
-        form.addWidget(self.redo_button)
-        layout.addWidget(stop_box)
+        row.addWidget(self.undo_button)
+        row.addWidget(self.redo_button)
+        layout.addLayout(row)
 
         layout.addWidget(QLabel("抜き出した色(クリックで HEX をコピー):"))
         self.output = ColorOutput(studio, "gradient", self._source, self)
@@ -147,9 +167,9 @@ class GradientTab(QWidget):
     def _show(self, g):
         self._state = g
         self.bar.set_gradient(g)
-        self.space_combo.blockSignals(True)
-        self.space_combo.setCurrentIndex(self.space_combo.findData(g.space))
-        self.space_combo.blockSignals(False)
+        self.space_control.blockSignals(True)
+        self.space_control.setCurrentIndex(self.space_control.findData(g.space))
+        self.space_control.blockSignals(False)
         self.count_spin.blockSignals(True)
         self.count_spin.setValue(g.count)
         self.count_spin.blockSignals(False)
@@ -190,7 +210,7 @@ class GradientTab(QWidget):
         self.position_spin.blockSignals(True)
         self.position_spin.setValue(stop.position)
         self.position_spin.blockSignals(False)
-        _paint_color_button(self.stop_color_button, stop.color)
+        self.stop_color_button.set_color(stop.color)
         self.stop_hex.setText(stop.color)
 
     def _position_edited(self, value):
@@ -243,7 +263,8 @@ class PaletteTab(QWidget):
         side_widget = QWidget(self)
         side = QVBoxLayout(side_widget)
         side.setContentsMargins(0, 0, 0, 0)
-        rule_form = QFormLayout()
+        side.setSpacing(0)
+        rule_box, rule_form = ui.section("配色")
         self.rule_combo = QComboBox(self)
         for key in harmony.RULES:
             self.rule_combo.addItem(harmony.RULE_LABELS[key], key)
@@ -253,52 +274,46 @@ class PaletteTab(QWidget):
         self.count_spin.setRange(harmony.MIN_COUNT, harmony.MAX_COUNT)
         self.count_spin.setKeyboardTracking(False)
         self.count_spin.valueChanged.connect(self._count_changed)
-        self.wheel_combo = QComboBox(self)
-        for key in harmony.WHEELS:
-            self.wheel_combo.addItem(harmony.WHEEL_LABELS[key], key)
-        self.wheel_combo.currentIndexChanged.connect(
-            lambda _i: self._commit(self._state.with_wheel(self.wheel_combo.currentData())))
+        self.wheel_control = _segmented([(harmony.WHEEL_LABELS[key], key) for key in harmony.WHEELS], self)
+        self.wheel_control.currentIndexChanged.connect(
+            lambda _i: self._commit(self._state.with_wheel(self.wheel_control.currentData())))
         self.brightness = QSlider(Qt.Orientation.Horizontal, self)
         self.brightness.setRange(5, 100)
         self.brightness.setAccessibleName("明るさ")
         self.brightness.valueChanged.connect(
             lambda v: self._preview(self._state.with_brightness(v / 100)))
         self.brightness.sliderReleased.connect(self._commit_current)
-        rule_form.addRow("配色ルール:", self.rule_combo)
-        rule_form.addRow("色数:", self.count_spin)
-        rule_form.addRow("色相環:", self.wheel_combo)
-        rule_form.addRow("明るさ:", self.brightness)
-        side.addLayout(rule_form)
+        rule_form.addRow("配色ルール", self.rule_combo)
+        rule_form.addRow("色数", _left(self.count_spin))
+        rule_form.addRow("色相環", self.wheel_control)
+        rule_form.addRow("明るさ", self.brightness)
+        side.addWidget(rule_box)
 
-        base_box = QGroupBox("基準色から", self)
-        base_row = QHBoxLayout(base_box)
-        self.base_button = _color_button("クリックで基準色を選ぶ")
+        base_box, base_form = ui.section("基準色から")
+        self.base_button = ColorButton("クリックで基準色を選ぶ", self)
         self.base_button.clicked.connect(self._pick_base)
-        self.base_hex = QLineEdit(base_box)
+        self.base_hex = QLineEdit(self)
         self.base_hex.setPlaceholderText("#rrggbb")
         self.base_hex.setMaximumWidth(100)
         self.base_hex.editingFinished.connect(self._base_hex_edited)
-        base_row.addWidget(self.base_button)
-        base_row.addWidget(self.base_hex)
-        base_row.addStretch(1)
+        base_form.addRow("基準色", _left(self.base_button, self.base_hex))
         side.addWidget(base_box)
 
-        image_box = QGroupBox("画像から", self)
-        image_row = QHBoxLayout(image_box)
-        self.thumb = QLabel(image_box)
+        image_box, image_form = ui.section("画像から")
+        self.thumb = _ImageThumb(self)
         self.thumb.setFixedSize(_THUMB_SIDE, _THUMB_SIDE)
         self.thumb.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.thumb.setStyleSheet("border: 1px dashed palette(mid);")
         self.thumb.setText("画像なし")
-        open_image = QPushButton("画像を開く...", image_box)
+        open_image = QPushButton("画像を開く...", self)
         open_image.setToolTip("画像の色を k-means で代表色に絞り、パレットにします(色数の分だけ)。")
         open_image.clicked.connect(self._open_image)
-        image_row.addWidget(self.thumb)
-        image_row.addWidget(open_image, 0, Qt.AlignmentFlag.AlignTop)
-        image_row.addStretch(1)
+        image_row = _left(self.thumb, open_image)
+        image_row.layout().setAlignment(open_image, Qt.AlignmentFlag.AlignTop)
+        image_form.addRow(image_row)
         side.addWidget(image_box)
 
         buttons = QHBoxLayout()
+        buttons.setContentsMargins(0, 8, 0, 0)
         random_button = QPushButton("ランダム", self)
         random_button.setToolTip("配色ルールはそのままに、基準色を無作為に選び直します")
         random_button.clicked.connect(lambda: self._commit(self._state.randomized(), keep_image=False))
@@ -334,13 +349,13 @@ class PaletteTab(QWidget):
         self.wheel.set_brightness(base_point[2])
         for w, setter in ((self.rule_combo, lambda: self.rule_combo.setCurrentIndex(self.rule_combo.findData(h.rule))),
                           (self.count_spin, lambda: self.count_spin.setValue(h.count)),
-                          (self.wheel_combo, lambda: self.wheel_combo.setCurrentIndex(self.wheel_combo.findData(h.wheel))),
+                          (self.wheel_control, lambda: self.wheel_control.setCurrentIndex(self.wheel_control.findData(h.wheel))),
                           (self.brightness, lambda: self.brightness.setValue(round(base_point[2] * 100)))):
             w.blockSignals(True)
             setter()
             w.blockSignals(False)
         base = h.base_color()
-        _paint_color_button(self.base_button, base)
+        self.base_button.set_color(base)
         self.base_hex.setText(base)
         self.output.set_colors(h.colors(), h.base_index())
         self.undo_button.setEnabled(self.history.can_undo())
@@ -561,7 +576,7 @@ class LibraryTab(QWidget):
         if path:
             n = self._guard(self.library.export, ids, path)
             if n:
-                self.studio.show_status(f"{n} 件を書き出しました: {path}")
+                self.studio.show_done(f"{n} 件を書き出しました。", path)
 
     def _import(self):
         path, _ = QFileDialog.getOpenFileName(self, "ライブラリを読み込む", "", "JSON (*.json);;すべてのファイル (*)")
@@ -570,8 +585,8 @@ class LibraryTab(QWidget):
         result = self._guard(self.library.import_file, path)
         if result:
             added, dropped = result
-            note = f"(読めなかった {dropped} 件は飛ばしました)" if dropped else ""
-            self.studio.show_status(f"{len(added)} 件を読み込みました{note}。")
+            note = f"読めなかった {dropped} 件は飛ばしました。" if dropped else ""
+            self.studio.show_done(f"{len(added)} 件を読み込みました。", note)
 
     def _guard(self, fn, *args):
         try:
@@ -617,6 +632,11 @@ class StudioWindow(QWidget):
 
     def show_status(self, text):
         self.status.setText(text)
+
+    def show_done(self, text, detail=""):
+        """済んだ操作。状態の行に加えて、本体と同じ知らせをウィンドウの右下に出す。"""
+        self.status.setText(text + detail)
+        ui.show_toast(self, text)
 
     def show_error(self, text):
         self.status.setText(text)

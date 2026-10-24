@@ -54,15 +54,17 @@ class History:
 class HandOff:
     """
     ライブラリへの保存と、本体(登録色・配色パレット・選択中のデータセット)への受け渡し。
-    ウィンドウのタブとドックパネルの両方から使う。結果は status(text) / error(text) で知らせる。
+    ウィンドウのタブとパネルの両方から使う。案内は status(text)、失敗は error(text)、
+    済んだ操作は done(text, detail)(text は知らせに出す短い文、detail は続けて状態の行に出す補足)。
     """
 
-    def __init__(self, parent, ctx, library, status, error):
+    def __init__(self, parent, ctx, library, status, error, done=None):
         self.parent = parent
         self.ctx = ctx
         self.library = library
         self.status = status
         self.error = error
+        self.done = done or (lambda text, detail="": status(text + detail))
 
     def _guard(self, fn, *args):
         try:
@@ -90,7 +92,7 @@ class HandOff:
                 return None
             replace_id = existing["id"]
         entry = self.library.add(kind, name, colors, source, replace_id=replace_id)
-        self.status(f"ライブラリに「{entry['name']}」を保存しました。")
+        self.done(f"ライブラリに「{entry['name']}」を保存しました。")
         return entry
 
     def register_palette(self, colors, default_name):
@@ -110,8 +112,8 @@ class HandOff:
             if answer != QMessageBox.StandardButton.Yes:
                 return
             bridge.register_palette(self.ctx, name, colors, overwrite=True)
-        self.status(f"配色パレット「{name}」を登録しました。本体の「パレット管理」でこのパレットを選ぶと、"
-                    "「自動配色」で系列に順に割り当てられます。")
+        self.done(f"配色パレット「{name}」を登録しました。", "本体の「パレット管理」でこのパレットを選ぶと、"
+                  "「自動配色」で系列に順に割り当てられます。")
 
     def add_named_colors(self, colors, name_hint=""):
         return self._guard(self._add_named_colors, colors, name_hint)
@@ -137,7 +139,7 @@ class HandOff:
             parts.append(f"{len(result['overwritten'])} 色を置き換え")
         if result["skipped"]:
             parts.append(f"{len(result['skipped'])} 色は追加せず")
-        self.status("登録色: " + "、".join(parts) + "。本体の色見本メニューの「登録色」に出ます。")
+        self.done("登録色: " + "、".join(parts) + "。", "本体の色見本メニューの「登録色」に出ます。")
 
     def apply(self, colors):
         return self._guard(self._apply, colors)
@@ -150,8 +152,8 @@ class HandOff:
         elif changed == 0:
             self.status(f"選択中の {total} 件は、すでにこの色です。")
         else:
-            self.status(f"選択中の {total} 件のうち {changed} 件に色を適用しました"
-                        "(本体の「元に戻す」は1件ずつ戻ります)。")
+            self.done(f"選択中の {total} 件のうち {changed} 件に色を適用しました。",
+                      "本体の「元に戻す」は1件ずつ戻ります。")
 
 
 class ColorOutput(QWidget):
@@ -171,7 +173,8 @@ class ColorOutput(QWidget):
         self._source_fn = source_fn  # () -> (既定の名前, 作り方の dict)
         self._colors = []
         self._name_hint = ""
-        self.handoff = HandOff(self, studio.ctx, studio.library, studio.show_status, studio.show_error)
+        self.handoff = HandOff(self, studio.ctx, studio.library, studio.show_status, studio.show_error,
+                               studio.show_done)
         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
 
         layout = QVBoxLayout(self)
@@ -236,11 +239,11 @@ class ColorOutput(QWidget):
 
     def _copy_all(self):
         QGuiApplication.clipboard().setText(", ".join(self._colors))
-        self._studio.show_status(f"{len(self._colors)} 色の HEX をコピーしました。")
+        self._studio.show_done(f"{len(self._colors)} 色の HEX をコピーしました。")
 
     def _copy_one(self, i):
         QGuiApplication.clipboard().setText(self._colors[i])
-        self._studio.show_status(f"{i + 1} 番目の色 {self._colors[i]} をコピーしました。")
+        self._studio.show_done(f"{i + 1} 番目の色 {self._colors[i]} をコピーしました。")
 
     def _swatch_menu(self, i, global_pos):
         menu = QMenu(self)
