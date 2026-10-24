@@ -88,7 +88,7 @@ def test_gradient_tab_count_space_and_undo(tmp_path):
     tab = win.gradient_tab
     tab.count_spin.setValue(9)
     assert len(tab.output.colors()) == 9
-    tab.space_combo.setCurrentIndex(tab.space_combo.findData("rgb"))
+    tab.space_control.setCurrentIndex(tab.space_control.findData("rgb"))
     assert tab.state().space == "rgb"
     tab.undo()
     assert tab.state().space == "oklab" and tab.state().count == 9
@@ -314,3 +314,54 @@ def test_wheel_render_is_cheap_enough():
     render_wheel_rgba(480, "ryb", 0.9)
     assert time.perf_counter() - t0 < 0.5
     assert np.asarray(render_wheel_rgba(8)).dtype == np.uint8
+
+
+@pytest.fixture
+def toasts(monkeypatch):
+    """本体の知らせ(ui.show_toast)を差し替え、出した文を記録する。"""
+    from graphica.plugin import ui
+    shown = []
+    monkeypatch.setattr(ui, "show_toast", lambda widget, text: shown.append(text))
+    return shown
+
+
+def test_panel_fits_the_plugin_page(tmp_path):
+    """本体の「プラグイン」ページは幅 280px。下のボタンが欠けずに入る。"""
+    panel = LibraryPanel(_ctx(tmp_path))
+    assert panel.minimumSizeHint().width() <= 280
+    panel.resize(280, 480)
+    panel.show()
+    panel.layout().activate()
+    for b in (panel.edit_button, panel.apply_button, panel.palette_button):
+        assert b.width() >= b.sizeHint().width(), b.text()
+        assert panel.rect().contains(b.geometry())
+    panel.deleteLater()
+
+
+def test_panel_register_palette_shows_a_toast(tmp_path, prompts, toasts):
+    ctx = _ctx(tmp_path)
+    panel = LibraryPanel(ctx)
+    get_library(ctx.data_dir).add("palette", "P", ["#123456", "#abcdef", "#fedcba"])
+    panel.list.setCurrentRow(0)
+    panel.palette_button.click()
+    assert ctx.color_palettes()["P"] == ["#123456", "#abcdef", "#fedcba"]
+    assert toasts == ["配色パレット「P」を登録しました。"]
+    assert "パレット管理" in panel.status.text()
+    panel.list.setCurrentItem(None)
+    panel.apply_button.click()
+    assert toasts == ["配色パレット「P」を登録しました。"]  # 案内は知らせに出さない
+    panel.deleteLater()
+
+
+def test_window_uses_the_host_parts(tmp_path, toasts):
+    from graphica.plugin import ui
+    win = studio_window.open_studio(_ctx(tmp_path))
+    g, p = win.gradient_tab, win.palette_tab
+    assert isinstance(g.space_control, ui.SegmentedControl) and isinstance(p.wheel_control, ui.SegmentedControl)
+    p.wheel_control.setCurrentIndex(p.wheel_control.findData("rgb"))
+    assert p.state().wheel == "rgb"
+    assert g.stop_color_button.color() == g.state().stops[0].color
+    assert g.stop_color_button.styleSheet() == "" and p.base_button.color() == p.state().base_color()
+    p.output._copy_all()
+    assert toasts and "コピーしました" in toasts[-1]
+    win.grab()
