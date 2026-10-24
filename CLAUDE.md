@@ -33,7 +33,7 @@ Graphica(https://github.com/STsuruga/Graphica)用プラグイン P-901 カラー
 ## コマンド
 python -m venv .venv                  # 初回だけ。Python 3.11 以上
 .venv\Scripts\activate               # macOS / Linux は source .venv/bin/activate
-pip install "graphica-plot>=2.0,<3"   # 本体の未リリースの変更で試すときは pip install -e <PlotterApp>/Graphica_project
+pip install "graphica-plot>=2.6,<3"   # 本体の未リリースの変更で試すときは pip install -e <PlotterApp>/Graphica_project
 pip install -r requirements-dev.txt
 pytest
 graphica                               # 本体を起動(zip は 編集 ▸ 環境設定 ▸ プラグイン から入れる)
@@ -49,6 +49,10 @@ python scripts/build_zip.py --all      # dist/color_studio-<version>.zip
 - プラグイン内は相対 import。他プラグインは import できない。
 - 受け取った Dataset は書き換えない。新しい Dataset は name / df / x_col_name / y_col_name 必須。
 - 本体から import するのは graphica.plugin / graphica.plugin.testing だけ。本体の操作は窓口 ctx(PluginContext)で行う。
+- 画面は本体の部品 graphica.plugin.ui(API 2.2)に合わせる: 節は ui.section、選択肢の少ない欄は ui.SegmentedControl、
+  済んだ操作は ui.show_toast。ui を import するのは画面のモジュール(studio_window.py / panel.py)だけ。
+  自前で描く所の色は theme.py の theme_qcolor(本体のテーマの色。本体が無い単体テストではパレット)。色を直書きした QSS は使わない。
+- パネルは本体の左端の帯の「プラグイン」ページ(幅 280px)に入る。横に並べるボタンは2つまで。
 - リリースしたら plugin.json の version とタグを揃え、ハブの db(collection "plugins", doc_id "P-901")を更新する。
 
 ## exe で import できるかの確かめ方
@@ -58,6 +62,12 @@ pip 版で通るテストでは、exe にサブパッケージが無いことに
 - exe は QSettings をレジストリ(HKCU\Software\Graphica)に書くので、先に reg export で退避し、終わったら reg delete → reg import で戻す。
 - 結果のファイルができたらプロセスを終了する。
 
+## 画面を撮って見た目を確かめる
+本体を editable で入れた仮想環境で、本体の MainAppWindow を作って show し、QTimer で順に操作して widget.grab() で保存する
+使い捨てのスクリプトを使う(明暗はタブの dark_mode_action.trigger())。LOCALAPPDATA は一時フォルダにする。
+QSettings.setDefaultFormat(IniFormat) にしても、本体は設定をレジストリに書く(dark_mode やウィンドウの配置)。
+先に reg export で退避し、終わったら reg import で戻して、もう一度 export して比べる。
+
 ## 現状
 - v1.0.0 をリリース(2026-09-28): https://github.com/STsuruga/graphica-plugin-color-studio/releases/tag/v1.0.0
   - pip 版(仮想環境の graphica)と Releases の exe(v2.0.0)の両方で動作を確認し、ユーザーも実機で確認した。テスト 142 件。
@@ -66,4 +76,10 @@ pip 版で通るテストでは、exe にサブパッケージが無いことに
   - 計測: k-means(256×256 のノイズ画像、k=10、numpy 版)0.12 秒、ホイール描画(480px)0.5 秒未満。
   - exe に scipy.cluster が無い → k-means を numpy で自前に持ち、scipy の import を禁じるテストを置いた(Graphica#77)。
   - 画面の Qt レイアウトの罠: 右の列を QLayout のまま置くと行の高さの上限になり、余りが下の色見本に回った(QWidget に包んで解決)。
+- v1.1.0(作業中、2026-10-24): 本体 v2.6.0 の新しい画面に合わせる。api_version 2.2(本体 2.6.0 以上でだけ読み込まれる)。
+  - パネルの下のボタンを2段に(「開いて編集」「選択中に適用」/「配色パレットに登録...」)。幅 280px で欠けないことをテストで確かめる。
+  - ウィンドウの設定を ui.section の節に、補間・色相環を ui.SegmentedControl に。色のボタンは自前で描く ColorButton。
+  - 済んだ操作(保存・登録・適用・コピー・書き出し・読み込み)は ui.show_toast でも知らせる。案内とエラーは今までどおり。
+  - 本体の release/v2.6.0 を editable で入れてテスト 147 件と、ライト・ダークの画面を確認。
+  - 公開は PyPI に graphica-plot 2.6.0 が出てから(CI は PyPI の本体でテストする。2026-10-24 時点の PyPI は 2.5.0)。
 - 次の版の候補: Graphica#78 が入ったら「選択中に適用」を1回の Undo にまとめ、「配色パレットに登録」で有効にもする(API 2.1)。
